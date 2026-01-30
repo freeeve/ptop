@@ -93,11 +93,23 @@ fn render_header(frame: &mut Frame, area: Rect, subtitle: Option<&str>, app: &Ap
 /// Renders the main target table.
 fn render_table(frame: &mut Frame, area: Rect, app: &App) {
     let header_cells = [
-        "Target", "Cur", "Avg", "Min", "Max", "P50", "P95", "Loss", "", "History",
+        "Target", "Cur", "Avg", "Min", "Max", "P50", "P95", "Loss", "History",
     ]
     .iter()
     .map(|h| Cell::from(*h).style(Style::default().fg(Color::Yellow)));
     let header = Row::new(header_cells).height(1);
+
+    // Calculate row height based on available space
+    let table_inner = Block::default().borders(Borders::ALL).inner(area);
+    let header_height = 1u16;
+    let num_targets = app.targets.len() as u16;
+    let available_height = table_inner.height.saturating_sub(header_height);
+    // Each target has 2 rows, so divide by 2 * num_targets
+    let row_height = if num_targets > 0 {
+        (available_height / (num_targets * 2)).max(1)
+    } else {
+        1
+    };
 
     let rows: Vec<Row> = app
         .targets
@@ -111,6 +123,7 @@ fn render_table(frame: &mut Frame, area: Rect, app: &App) {
                 &target.addr.to_string(),
                 stats,
                 is_selected,
+                row_height,
             )
         })
         .collect();
@@ -126,7 +139,6 @@ fn render_table(frame: &mut Frame, area: Rect, app: &App) {
             Constraint::Length(8),  // P50
             Constraint::Length(8),  // P95
             Constraint::Length(14), // Loss
-            Constraint::Length(3),  // Spacer
             Constraint::Min(30),    // History sparkline
         ],
     )
@@ -145,6 +157,7 @@ fn create_target_rows<'a>(
     addr: &str,
     stats: &TargetStats,
     selected: bool,
+    row_height: u16,
 ) -> Vec<Row<'a>> {
     let (base_style, dim_color) = if selected {
         (
@@ -190,11 +203,10 @@ fn create_target_rows<'a>(
         Cell::from(format_duration_opt(stats.p95())),
         Cell::from(format_loss(window_lost, window_loss_pct))
             .style(Style::default().fg(loss_color(window_loss_pct))),
-        Cell::from(""), // Spacer
         Cell::from(""), // Sparkline placeholder
     ])
     .style(base_style)
-    .height(1);
+    .height(row_height);
 
     // Row 2: All-time stats
     let all_time = &stats.all_time;
@@ -209,11 +221,10 @@ fn create_target_rows<'a>(
         Cell::from(format_duration_opt(all_time.p95())).style(dim),
         Cell::from(format_loss(all_time_lost, all_time_loss_pct))
             .style(Style::default().fg(loss_color(all_time_loss_pct)).add_modifier(Modifier::DIM)),
-        Cell::from(""), // Spacer
-        Cell::from(""), // Empty for sparkline row
+        Cell::from(""), // Sparkline placeholder
     ])
     .style(base_style)
-    .height(1);
+    .height(row_height);
 
     vec![window_row, all_time_row]
 }
@@ -222,9 +233,17 @@ fn create_target_rows<'a>(
 fn render_sparklines(frame: &mut Frame, area: Rect, app: &App) {
     let table_inner = Block::default().borders(Borders::ALL).inner(area);
 
-    // Each target now has 2 rows (window + all-time)
-    let rows_per_target = 2u16;
     let header_height = 1u16;
+    let num_targets = app.stats.len() as u16;
+
+    // Calculate row height to match table layout (must be consistent with render_table)
+    let available_height = table_inner.height.saturating_sub(header_height);
+    let row_height = if num_targets > 0 {
+        (available_height / (num_targets * 2)).max(1)
+    } else {
+        1
+    };
+    let rows_per_target = row_height * 2;
 
     for (idx, stats) in app.stats.iter().enumerate() {
         // Sparkline goes on the first row of each target pair
@@ -234,20 +253,23 @@ fn render_sparklines(frame: &mut Frame, area: Rect, app: &App) {
         }
 
         // Sparkline column starts after the other columns
-        // Width: 16 + 8 + 8 + 8 + 8 + 8 + 8 + 14 + 3 = 81
-        let x = table_inner.x + 81;
-        let width = table_inner.width.saturating_sub(81);
+        // Width: 16 + 8 + 8 + 8 + 8 + 8 + 8 + 14 = 78
+        // Add offset to avoid rendering artifacts on bottom rows
+        let sparkline_offset = 8u16;
+        let x = table_inner.x + 78 + sparkline_offset;
+        let width = table_inner.width.saturating_sub(78 + sparkline_offset);
 
-        if width > 4 {
-            // Sparkline spans both rows, offset by 4 to skip dim bleed area
-            let sparkline_area = Rect::new(x + 4, y, width - 4, rows_per_target);
+        if width > 0 {
+            // Sparkline spans available rows for this target
+            let sparkline_height = rows_per_target.min(table_inner.y + table_inner.height - y);
+            let sparkline_area = Rect::new(x, y, width, sparkline_height);
             let data = stats.sparkline_data();
 
-            // Take only the last `width - 4` samples
+            // Take only the last `width` samples
             let display_data: Vec<u64> = data
                 .iter()
                 .rev()
-                .take((width - 4) as usize)
+                .take(width as usize)
                 .rev()
                 .copied()
                 .collect();
@@ -647,11 +669,22 @@ fn render_replay_table(
     selected: usize,
 ) {
     let header_cells = [
-        "Target", "Cur", "Avg", "Min", "Max", "P50", "P95", "Loss", "", "History",
+        "Target", "Cur", "Avg", "Min", "Max", "P50", "P95", "Loss", "History",
     ]
     .iter()
     .map(|h| Cell::from(*h).style(Style::default().fg(Color::Yellow)));
     let header = Row::new(header_cells).height(1);
+
+    // Calculate row height based on available space
+    let table_inner = Block::default().borders(Borders::ALL).inner(area);
+    let header_height = 1u16;
+    let num_targets = targets.len() as u16;
+    let available_height = table_inner.height.saturating_sub(header_height);
+    let row_height = if num_targets > 0 {
+        (available_height / (num_targets * 2)).max(1)
+    } else {
+        1
+    };
 
     let rows: Vec<Row> = targets
         .iter()
@@ -664,6 +697,7 @@ fn render_replay_table(
                 &target.addr.to_string(),
                 stats,
                 is_selected,
+                row_height,
             )
         })
         .collect();
@@ -679,7 +713,6 @@ fn render_replay_table(
             Constraint::Length(8),
             Constraint::Length(8),
             Constraint::Length(14),
-            Constraint::Length(3),
             Constraint::Min(30),
         ],
     )
@@ -695,8 +728,17 @@ fn render_replay_table(
 /// Renders sparklines for replay mode.
 fn render_replay_sparklines(frame: &mut Frame, area: Rect, stats: &[TargetStats]) {
     let table_inner = Block::default().borders(Borders::ALL).inner(area);
-    let rows_per_target = 2u16;
     let header_height = 1u16;
+    let num_targets = stats.len() as u16;
+
+    // Calculate row height to match table layout (must be consistent with render_replay_table)
+    let available_height = table_inner.height.saturating_sub(header_height);
+    let row_height = if num_targets > 0 {
+        (available_height / (num_targets * 2)).max(1)
+    } else {
+        1
+    };
+    let rows_per_target = row_height * 2;
 
     for (idx, stat) in stats.iter().enumerate() {
         let y = table_inner.y + header_height + (idx as u16 * rows_per_target);
@@ -704,18 +746,21 @@ fn render_replay_sparklines(frame: &mut Frame, area: Rect, stats: &[TargetStats]
             break;
         }
 
-        let x = table_inner.x + 81;
-        let width = table_inner.width.saturating_sub(81);
+        // Add offset to avoid rendering artifacts on bottom rows
+        let sparkline_offset = 8u16;
+        let x = table_inner.x + 78 + sparkline_offset;
+        let width = table_inner.width.saturating_sub(78 + sparkline_offset);
 
-        if width > 4 {
-            // Sparkline spans both rows, offset by 4 to skip dim bleed area
-            let sparkline_area = Rect::new(x + 4, y, width - 4, rows_per_target);
+        if width > 0 {
+            // Sparkline spans available rows for this target
+            let sparkline_height = rows_per_target.min(table_inner.y + table_inner.height - y);
+            let sparkline_area = Rect::new(x, y, width, sparkline_height);
             let data = stat.sparkline_data();
 
             let display_data: Vec<u64> = data
                 .iter()
                 .rev()
-                .take((width - 4) as usize)
+                .take(width as usize)
                 .rev()
                 .copied()
                 .collect();
