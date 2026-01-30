@@ -26,6 +26,10 @@ pub struct Args {
     #[arg(short = 'l', long)]
     pub log_raw: bool,
 
+    /// Save session summary on exit (saves to ~/.ptop/sessions/)
+    #[arg(short = 's', long)]
+    pub summary: bool,
+
     /// Replay a previously recorded session
     #[arg(long, value_name = "PATH")]
     pub replay: Option<String>,
@@ -37,6 +41,10 @@ pub struct Args {
     /// List available log files for replay
     #[arg(long)]
     pub list_logs: bool,
+
+    /// List available session summaries
+    #[arg(long)]
+    pub list_sessions: bool,
 }
 
 #[derive(Debug, Clone)]

@@ -88,6 +88,11 @@ async fn main() -> Result<()> {
         return list_available_logs();
     }
 
+    // Handle --list-sessions
+    if args.list_sessions {
+        return list_available_sessions();
+    }
+
     // Handle --replay
     if let Some(replay_path) = &args.replay {
         return run_replay_mode(replay_path, args.speed).await;
@@ -117,6 +122,29 @@ fn list_available_logs() -> Result<()> {
         }
     }
     println!("\nUse --replay <path> to replay a log file.");
+
+    Ok(())
+}
+
+/// Lists available session summaries.
+fn list_available_sessions() -> Result<()> {
+    let sessions = logging::list_sessions()?;
+
+    if sessions.is_empty() {
+        println!("No session summaries found.");
+        println!("Use -s flag to save session summaries: sudo ptop -s");
+        return Ok(());
+    }
+
+    println!("Available session summaries:\n");
+    for session in sessions {
+        println!("  {}", session.display());
+        if let Ok(meta) = std::fs::metadata(&session) {
+            let size_kb = meta.len() / 1024;
+            println!("    Size: {} KB", size_kb);
+        }
+    }
+    println!("\nView with: zcat <path> | jq");
 
     Ok(())
 }
@@ -197,7 +225,12 @@ async fn run_live_mode(args: Args) -> Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     // Create app
-    let mut app = App::new(targets, Duration::from_millis(args.interval), args.log_raw)?;
+    let mut app = App::new(
+        targets,
+        Duration::from_millis(args.interval),
+        args.log_raw,
+        args.summary,
+    )?;
 
     if args.log_raw
         && let Some(path) = &app.logger.event_log_path
@@ -208,7 +241,7 @@ async fn run_live_mode(args: Args) -> Result<()> {
     // Main loop
     let res = run_live_app(&mut terminal, &mut app).await;
 
-    // Write session summary before restoring terminal
+    // Write session summary before restoring terminal (only if enabled)
     let summary_path = app.logger.write_summary(&app.targets, &app.stats)?;
     app.logger.finish()?;
 
@@ -221,8 +254,10 @@ async fn run_live_mode(args: Args) -> Result<()> {
     )?;
     terminal.show_cursor()?;
 
-    // Print summary location
-    println!("Session summary saved to: {}", summary_path.display());
+    // Print log locations (only if enabled)
+    if let Some(path) = &summary_path {
+        println!("Session summary saved to: {}", path.display());
+    }
     if let Some(log_path) = &app.logger.event_log_path {
         println!("Raw ping log saved to: {}", log_path.display());
     }

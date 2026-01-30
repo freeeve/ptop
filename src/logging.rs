@@ -91,7 +91,7 @@ pub struct SessionLogger {
 
 impl SessionLogger {
     /// Creates a new session logger.
-    pub fn new(log_raw: bool) -> Result<Self> {
+    pub fn new(log_raw: bool, log_summary: bool) -> Result<Self> {
         let started = Utc::now();
         let (event_writer, event_log_path) = if log_raw {
             let dir = data_dir()?.join("logs");
@@ -111,13 +111,17 @@ impl SessionLogger {
             (None, None)
         };
 
-        // Pre-create summary path
-        let summary_path = data_dir().ok().map(|d| {
-            let dir = d.join("sessions");
-            let _ = fs::create_dir_all(&dir);
-            let filename = format!("{}.json.gz", started.format("%Y-%m-%dT%H-%M-%S"));
-            dir.join(filename)
-        });
+        // Pre-create summary path only if summary logging is enabled
+        let summary_path = if log_summary {
+            data_dir().ok().map(|d| {
+                let dir = d.join("sessions");
+                let _ = fs::create_dir_all(&dir);
+                let filename = format!("{}.json.gz", started.format("%Y-%m-%dT%H-%M-%S"));
+                dir.join(filename)
+            })
+        } else {
+            None
+        };
 
         Ok(Self {
             started,
@@ -249,11 +253,16 @@ impl SessionLogger {
     }
 
     /// Writes the final session summary on exit.
-    pub fn write_summary(&self, targets: &[Target], stats: &[TargetStats]) -> Result<PathBuf> {
-        let ended = Utc::now();
-        self.write_summary_internal(targets, stats, ended)?;
-
-        Ok(self.summary_path.clone().unwrap_or_default())
+    pub fn write_summary(
+        &self,
+        targets: &[Target],
+        stats: &[TargetStats],
+    ) -> Result<Option<PathBuf>> {
+        if self.summary_path.is_some() {
+            let ended = Utc::now();
+            self.write_summary_internal(targets, stats, ended)?;
+        }
+        Ok(self.summary_path.clone())
     }
 }
 
@@ -298,7 +307,6 @@ pub fn load_session(path: &PathBuf) -> Result<SessionSummary> {
 }
 
 /// Lists available session summaries.
-#[allow(dead_code)]
 pub fn list_sessions() -> Result<Vec<PathBuf>> {
     let dir = data_dir()?.join("sessions");
     if !dir.exists() {

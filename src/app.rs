@@ -37,7 +37,12 @@ pub struct App {
 
 impl App {
     /// Creates a new App and starts pinging all targets.
-    pub fn new(targets: Vec<Target>, interval: Duration, log_raw: bool) -> anyhow::Result<Self> {
+    pub fn new(
+        targets: Vec<Target>,
+        interval: Duration,
+        log_raw: bool,
+        log_summary: bool,
+    ) -> anyhow::Result<Self> {
         let (tx, rx) = mpsc::unbounded_channel();
 
         let stats: Vec<TargetStats> = targets.iter().map(|_| TargetStats::new()).collect();
@@ -47,7 +52,7 @@ impl App {
             spawn_pinger(idx, target.clone(), interval, tx.clone());
         }
 
-        let logger = SessionLogger::new(log_raw)?;
+        let logger = SessionLogger::new(log_raw, log_summary)?;
         let started_at = logger.started;
 
         Ok(Self {
