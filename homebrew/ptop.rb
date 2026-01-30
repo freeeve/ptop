@@ -16,10 +16,6 @@ class Ptop < Formula
   end
 
   on_linux do
-    on_arm do
-      url "https://github.com/freeeve/ptop/releases/download/v#{version}/ptop-linux-aarch64.tar.gz"
-      sha256 "PLACEHOLDER_SHA256_LINUX_ARM64"
-    end
     on_intel do
       url "https://github.com/freeeve/ptop/releases/download/v#{version}/ptop-linux-x86_64.tar.gz"
       sha256 "PLACEHOLDER_SHA256_LINUX_X86_64"

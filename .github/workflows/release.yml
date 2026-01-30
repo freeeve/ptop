@@ -16,18 +16,12 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             name: ptop-linux-x86_64
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
-            name: ptop-linux-aarch64
           - target: x86_64-apple-darwin
             os: macos-latest
             name: ptop-macos-x86_64
           - target: aarch64-apple-darwin
             os: macos-latest
             name: ptop-macos-aarch64
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            name: ptop-windows-x86_64
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -37,38 +31,20 @@ jobs:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
 
-      - name: Install cross-compilation tools (Linux ARM)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
-
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
-      - name: Package (Unix)
-        if: runner.os != 'Windows'
+      - name: Package
         run: |
           cd target/${{ matrix.target }}/release
           tar czvf ../../../${{ matrix.name }}.tar.gz ptop
-          cd ../../..
-
-      - name: Package (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          cd target/${{ matrix.target }}/release
-          7z a ../../../${{ matrix.name }}.zip ptop.exe
           cd ../../..
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
-          path: |
-            ${{ matrix.name }}.tar.gz
-            ${{ matrix.name }}.zip
+          path: ${{ matrix.name }}.tar.gz
 
   release:
     needs: build
@@ -86,9 +62,7 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            artifacts/**/*.tar.gz
-            artifacts/**/*.zip
+          files: artifacts/**/*.tar.gz
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
