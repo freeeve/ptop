@@ -2,7 +2,7 @@
 
 A network latency monitor with a terminal UI - like htop, but for ping.
 
-![ptop demo](demo.gif)
+![ptop demo](readme/demo.gif)
 
 ## Features
 
