@@ -176,8 +176,8 @@ fn create_target_rows<'a>(
         }
     };
 
-    let window_lost = stats.sent - stats.received;
-    let window_loss_pct = stats.packet_loss();
+    let (window_lost, window_loss_pct) = stats.window_packet_loss();
+    let (all_time_lost, all_time_loss_pct) = stats.all_time_packet_loss();
 
     // Row 1: Window stats (recent)
     let window_row = Row::new(vec![
@@ -198,7 +198,6 @@ fn create_target_rows<'a>(
 
     // Row 2: All-time stats
     let all_time = &stats.all_time;
-    let elapsed = format_elapsed(stats.elapsed());
     let dim = Style::default().fg(dim_color);
     let all_time_row = Row::new(vec![
         Cell::from(addr.to_string()).style(dim),
@@ -208,7 +207,8 @@ fn create_target_rows<'a>(
         Cell::from(format_duration_opt(all_time.max)).style(dim),
         Cell::from(format_duration_opt(all_time.p50())).style(dim),
         Cell::from(format_duration_opt(all_time.p95())).style(dim),
-        Cell::from(elapsed).style(dim),
+        Cell::from(format_loss(all_time_lost, all_time_loss_pct))
+            .style(Style::default().fg(loss_color(all_time_loss_pct)).add_modifier(Modifier::DIM)),
         Cell::from(""), // Spacer
         Cell::from(""), // Empty for sparkline row
     ])

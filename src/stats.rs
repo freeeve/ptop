@@ -330,12 +330,34 @@ impl TargetStats {
         Some((boundaries, counts))
     }
 
-    /// Returns packet loss percentage.
+    /// Returns all-time packet loss percentage.
     pub fn packet_loss(&self) -> f64 {
         if self.sent == 0 {
             return 0.0;
         }
         ((self.sent - self.received) as f64 / self.sent as f64) * 100.0
+    }
+
+    /// Returns window (recent history) packet loss stats: (lost_count, loss_percentage).
+    pub fn window_packet_loss(&self) -> (u64, f64) {
+        if self.history.is_empty() {
+            return (0, 0.0);
+        }
+        let total = self.history.len() as u64;
+        let successful = self
+            .history
+            .iter()
+            .filter(|r| matches!(r, PingResult::Success(_)))
+            .count() as u64;
+        let lost = total - successful;
+        let pct = (lost as f64 / total as f64) * 100.0;
+        (lost, pct)
+    }
+
+    /// Returns all-time packet loss stats: (lost_count, loss_percentage).
+    pub fn all_time_packet_loss(&self) -> (u64, f64) {
+        let lost = self.sent - self.received;
+        (lost, self.packet_loss())
     }
 
     /// Returns the most recent latency, if available.
