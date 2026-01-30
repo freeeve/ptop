@@ -50,6 +50,27 @@ fn format_session_duration(duration: chrono::Duration) -> String {
     }
 }
 
+/// Formats large numbers compactly (e.g., 200000 → "200k", 3123423 → "3.1m").
+fn format_count(n: u64) -> String {
+    if n >= 1_000_000 {
+        let m = n as f64 / 1_000_000.0;
+        if m >= 10.0 {
+            format!("{}m", m.round() as u64)
+        } else {
+            format!("{:.1}m", m)
+        }
+    } else if n >= 1_000 {
+        let k = n as f64 / 1_000.0;
+        if k >= 10.0 {
+            format!("{}k", k.round() as u64)
+        } else {
+            format!("{:.1}k", k)
+        }
+    } else {
+        format!("{}", n)
+    }
+}
+
 /// Renders the header with title.
 fn render_header(frame: &mut Frame, area: Rect, subtitle: Option<&str>, app: &App) {
     let now = Local::now();
@@ -93,7 +114,7 @@ fn render_header(frame: &mut Frame, area: Rect, subtitle: Option<&str>, app: &Ap
 /// Renders the main target table.
 fn render_table(frame: &mut Frame, area: Rect, app: &App) {
     let header_cells = [
-        "Target", "Cur", "Avg", "Min", "Max", "P50", "P95", "Loss", "History",
+        "Target", "n", "Avg", "Min", "Max", "P50", "P95", "Loss", "History",
     ]
     .iter()
     .map(|h| Cell::from(*h).style(Style::default().fg(Color::Yellow)));
@@ -131,15 +152,15 @@ fn render_table(frame: &mut Frame, area: Rect, app: &App) {
     let table = Table::new(
         rows,
         [
-            Constraint::Length(16), // Target
-            Constraint::Length(8),  // Current
+            Constraint::Length(26), // Target
+            Constraint::Length(8),  // n
             Constraint::Length(8),  // Avg
             Constraint::Length(8),  // Min
             Constraint::Length(8),  // Max
             Constraint::Length(8),  // P50
             Constraint::Length(8),  // P95
             Constraint::Length(14), // Loss
-            Constraint::Min(30),    // History sparkline
+            Constraint::Min(20),    // History sparkline
         ],
     )
     .header(header)
@@ -195,7 +216,10 @@ fn create_target_rows<'a>(
     // Row 1: Window stats (recent)
     let window_row = Row::new(vec![
         Cell::from(name.to_string()).style(Style::default().add_modifier(Modifier::BOLD)),
-        Cell::from(format_duration_opt(stats.current())),
+        Cell::from(format!(
+            "last {}",
+            format_count(stats.window_count() as u64)
+        )),
         Cell::from(format_duration_opt(stats.average())),
         Cell::from(format_duration_opt(stats.min())),
         Cell::from(format_duration_opt(stats.max())),
@@ -212,15 +236,18 @@ fn create_target_rows<'a>(
     let all_time = &stats.all_time;
     let dim = Style::default().fg(dim_color);
     let all_time_row = Row::new(vec![
-        Cell::from(addr.to_string()).style(dim),
-        Cell::from(format!("n={}", stats.sent)).style(dim),
+        Cell::from(format!("└ {}", addr)).style(dim),
+        Cell::from(format!("all {}", format_count(stats.sent))).style(dim),
         Cell::from(format_duration_opt(all_time.average())).style(dim),
         Cell::from(format_duration_opt(all_time.min)).style(dim),
         Cell::from(format_duration_opt(all_time.max)).style(dim),
         Cell::from(format_duration_opt(all_time.p50())).style(dim),
         Cell::from(format_duration_opt(all_time.p95())).style(dim),
-        Cell::from(format_loss(all_time_lost, all_time_loss_pct))
-            .style(Style::default().fg(loss_color(all_time_loss_pct)).add_modifier(Modifier::DIM)),
+        Cell::from(format_loss(all_time_lost, all_time_loss_pct)).style(
+            Style::default()
+                .fg(loss_color(all_time_loss_pct))
+                .add_modifier(Modifier::DIM),
+        ),
         Cell::from(""), // Sparkline placeholder
     ])
     .style(base_style)
@@ -253,11 +280,11 @@ fn render_sparklines(frame: &mut Frame, area: Rect, app: &App) {
         }
 
         // Sparkline column starts after the other columns
-        // Width: 16 + 8 + 8 + 8 + 8 + 8 + 8 + 14 = 78
+        // Width: 26 + 8 + 8 + 8 + 8 + 8 + 8 + 14 = 88
         // Add offset to avoid rendering artifacts on bottom rows
         let sparkline_offset = 8u16;
-        let x = table_inner.x + 78 + sparkline_offset;
-        let width = table_inner.width.saturating_sub(78 + sparkline_offset);
+        let x = table_inner.x + 88 + sparkline_offset;
+        let width = table_inner.width.saturating_sub(88 + sparkline_offset);
 
         if width > 0 {
             // Sparkline spans available rows for this target
@@ -444,8 +471,19 @@ fn render_histogram(frame: &mut Frame, area: Rect, stats: &TargetStats) {
     if let Some((boundaries, counts)) = stats.histogram(12) {
         let max_count = counts.iter().max().copied().unwrap_or(1);
 
-        // Create labels
-        let labels: Vec<String> = boundaries.iter().map(|b| format!("{:.0}", b)).collect();
+        // Determine label precision based on bucket size
+        let bucket_size = if boundaries.len() >= 2 {
+            boundaries[1] - boundaries[0]
+        } else {
+            1.0
+        };
+        let precision = if bucket_size < 1.0 { 1 } else { 0 };
+
+        // Create labels with appropriate precision
+        let labels: Vec<String> = boundaries
+            .iter()
+            .map(|b| format!("{:.prec$}", b, prec = precision))
+            .collect();
 
         // Build bar data with labels
         let bar_data: Vec<(String, u64)> = labels
@@ -669,7 +707,7 @@ fn render_replay_table(
     selected: usize,
 ) {
     let header_cells = [
-        "Target", "Cur", "Avg", "Min", "Max", "P50", "P95", "Loss", "History",
+        "Target", "n", "Avg", "Min", "Max", "P50", "P95", "Loss", "History",
     ]
     .iter()
     .map(|h| Cell::from(*h).style(Style::default().fg(Color::Yellow)));
@@ -705,7 +743,7 @@ fn render_replay_table(
     let table = Table::new(
         rows,
         [
-            Constraint::Length(16),
+            Constraint::Length(26),
             Constraint::Length(8),
             Constraint::Length(8),
             Constraint::Length(8),
@@ -713,7 +751,7 @@ fn render_replay_table(
             Constraint::Length(8),
             Constraint::Length(8),
             Constraint::Length(14),
-            Constraint::Min(30),
+            Constraint::Min(20),
         ],
     )
     .header(header)
@@ -748,8 +786,8 @@ fn render_replay_sparklines(frame: &mut Frame, area: Rect, stats: &[TargetStats]
 
         // Add offset to avoid rendering artifacts on bottom rows
         let sparkline_offset = 8u16;
-        let x = table_inner.x + 78 + sparkline_offset;
-        let width = table_inner.width.saturating_sub(78 + sparkline_offset);
+        let x = table_inner.x + 88 + sparkline_offset;
+        let width = table_inner.width.saturating_sub(88 + sparkline_offset);
 
         if width > 0 {
             // Sparkline spans available rows for this target

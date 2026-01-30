@@ -426,6 +426,11 @@ impl TargetStats {
         self.percentile(99.0)
     }
 
+    /// Returns the number of samples in the recent window.
+    pub fn window_count(&self) -> usize {
+        self.history.len()
+    }
+
     /// Returns latencies as f64 milliseconds for sparkline rendering.
     /// Timeouts/errors are represented as 0.0.
     pub fn sparkline_data(&self) -> Vec<u64> {
