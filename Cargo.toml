@@ -1,0 +1,55 @@
+[package]
+name = "ptop"
+version = "0.1.0"
+edition = "2024"
+description = "Network latency monitor - htop for ping"
+license = "MIT"
+repository = "https://github.com/yourusername/ptop"
+keywords = ["ping", "network", "latency", "monitoring", "tui"]
+categories = ["command-line-utilities", "network-programming"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# ICMP ping
+surge-ping = "0.8"
+
+# TUI
+ratatui = "0.28"
+crossterm = "0.28"
+
+# CLI arguments
+clap = { version = "4", features = ["derive"] }
+
+# Error handling
+anyhow = "1"
+
+# Random for ping identifiers
+rand = "0.8"
+
+# Streaming percentiles
+tdigest = "0.2"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Compression
+flate2 = "1"
+
+# Unix permissions check
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Logging (optional, for debugging)
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
