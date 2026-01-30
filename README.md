@@ -39,6 +39,10 @@ sudo mv ptop /usr/local/bin/
 # Linux (x86_64)
 curl -L https://github.com/freeeve/ptop/releases/latest/download/ptop-linux-x86_64.tar.gz | tar xz
 sudo mv ptop /usr/local/bin/
+
+# Linux (ARM64)
+curl -L https://github.com/freeeve/ptop/releases/latest/download/ptop-linux-aarch64.tar.gz | tar xz
+sudo mv ptop /usr/local/bin/
 ```
 
 ### From source
