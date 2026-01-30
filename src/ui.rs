@@ -239,8 +239,8 @@ fn render_sparklines(frame: &mut Frame, area: Rect, app: &App) {
         let width = table_inner.width.saturating_sub(81);
 
         if width > 0 {
-            // Sparkline spans both rows for this target
-            let sparkline_area = Rect::new(x, y, width, rows_per_target);
+            // Sparkline on first row only (avoids dim styling from all-time row)
+            let sparkline_area = Rect::new(x, y, width, 1);
             let data = stats.sparkline_data();
 
             // Take only the last `width` samples
@@ -708,7 +708,8 @@ fn render_replay_sparklines(frame: &mut Frame, area: Rect, stats: &[TargetStats]
         let width = table_inner.width.saturating_sub(81);
 
         if width > 0 {
-            let sparkline_area = Rect::new(x, y, width, rows_per_target);
+            // Sparkline on first row only
+            let sparkline_area = Rect::new(x, y, width, 1);
             let data = stat.sparkline_data();
 
             let display_data: Vec<u64> = data
