@@ -2,6 +2,8 @@
 
 A network latency monitor with a terminal UI - like htop, but for ping.
 
+![ptop demo](demo.gif)
+
 ## Features
 
 - **Real-time monitoring** - Ping multiple targets concurrently with live updates
