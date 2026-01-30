@@ -238,23 +238,23 @@ fn render_sparklines(frame: &mut Frame, area: Rect, app: &App) {
         let x = table_inner.x + 81;
         let width = table_inner.width.saturating_sub(81);
 
-        if width > 0 {
-            // Sparkline spans both rows
-            let sparkline_area = Rect::new(x, y, width, rows_per_target);
+        if width > 4 {
+            // Sparkline spans both rows, offset by 4 to skip dim bleed area
+            let sparkline_area = Rect::new(x + 4, y, width - 4, rows_per_target);
             let data = stats.sparkline_data();
 
-            // Take only the last `width` samples
+            // Take only the last `width - 4` samples
             let display_data: Vec<u64> = data
                 .iter()
                 .rev()
-                .take(width as usize)
+                .take((width - 4) as usize)
                 .rev()
                 .copied()
                 .collect();
 
             let sparkline = Sparkline::default()
                 .data(&display_data)
-                .style(Style::default().fg(Color::Cyan).bg(Color::Reset));
+                .style(Style::default().fg(Color::Cyan));
 
             frame.render_widget(sparkline, sparkline_area);
         }
@@ -707,22 +707,22 @@ fn render_replay_sparklines(frame: &mut Frame, area: Rect, stats: &[TargetStats]
         let x = table_inner.x + 81;
         let width = table_inner.width.saturating_sub(81);
 
-        if width > 0 {
-            // Sparkline spans both rows
-            let sparkline_area = Rect::new(x, y, width, rows_per_target);
+        if width > 4 {
+            // Sparkline spans both rows, offset by 4 to skip dim bleed area
+            let sparkline_area = Rect::new(x + 4, y, width - 4, rows_per_target);
             let data = stat.sparkline_data();
 
             let display_data: Vec<u64> = data
                 .iter()
                 .rev()
-                .take(width as usize)
+                .take((width - 4) as usize)
                 .rev()
                 .copied()
                 .collect();
 
             let sparkline = Sparkline::default()
                 .data(&display_data)
-                .style(Style::default().fg(Color::Cyan).bg(Color::Reset));
+                .style(Style::default().fg(Color::Cyan));
 
             frame.render_widget(sparkline, sparkline_area);
         }
