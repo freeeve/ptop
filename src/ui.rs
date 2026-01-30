@@ -125,7 +125,7 @@ fn render_table(frame: &mut Frame, area: Rect, app: &App) {
             Constraint::Length(8),  // Max
             Constraint::Length(8),  // P50
             Constraint::Length(8),  // P95
-            Constraint::Length(12), // Loss
+            Constraint::Length(14), // Loss
             Constraint::Length(3),  // Spacer
             Constraint::Min(30),    // History sparkline
         ],
@@ -234,9 +234,9 @@ fn render_sparklines(frame: &mut Frame, area: Rect, app: &App) {
         }
 
         // Sparkline column starts after the other columns
-        // Width: 16 + 8 + 8 + 8 + 8 + 8 + 8 + 12 + 3 = 79
-        let x = table_inner.x + 79;
-        let width = table_inner.width.saturating_sub(79);
+        // Width: 16 + 8 + 8 + 8 + 8 + 8 + 8 + 14 + 3 = 81
+        let x = table_inner.x + 81;
+        let width = table_inner.width.saturating_sub(81);
 
         if width > 0 {
             // Sparkline spans both rows for this target
@@ -678,7 +678,7 @@ fn render_replay_table(
             Constraint::Length(8),
             Constraint::Length(8),
             Constraint::Length(8),
-            Constraint::Length(12),
+            Constraint::Length(14),
             Constraint::Length(3),
             Constraint::Min(30),
         ],
@@ -704,8 +704,8 @@ fn render_replay_sparklines(frame: &mut Frame, area: Rect, stats: &[TargetStats]
             break;
         }
 
-        let x = table_inner.x + 79;
-        let width = table_inner.width.saturating_sub(79);
+        let x = table_inner.x + 81;
+        let width = table_inner.width.saturating_sub(81);
 
         if width > 0 {
             let sparkline_area = Rect::new(x, y, width, rows_per_target);
